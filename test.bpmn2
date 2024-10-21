@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:activiti="http://activiti.org/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             id="Definitions_1"
+             targetNamespace="http://bpmn.io/schema/bpmn">
+  <process id="workflowProcess" name="Workflow Process" isExecutable="true">
+
+    <!-- Start Event -->
+    <startEvent id="startEvent" name="Start" activiti:initiator="initiator" />
+    <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="createdState" />
+
+    <!-- Created State -->
+    <userTask id="createdState" name="Created" activiti:assignee="${initiator}" />
+    <serviceTask id="auditCreatedState" name="Audit Created State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit1" sourceRef="createdState" targetRef="auditCreatedState" />
+    <sequenceFlow id="flow2" sourceRef="auditCreatedState" targetRef="assignedState" />
+
+    <!-- Assigned State -->
+    <userTask id="assignedState" name="Assigned" activiti:assignee="reviewer" />
+    <serviceTask id="auditAssignedState" name="Audit Assigned State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit2" sourceRef="assignedState" targetRef="auditAssignedState" />
+    <sequenceFlow id="flow3" sourceRef="auditAssignedState" targetRef="reassignedState" />
+    <sequenceFlow id="flow4" sourceRef="assignedState" targetRef="declinedState" />
+    <sequenceFlow id="flow5" sourceRef="assignedState" targetRef="approvedState" />
+    <sequenceFlow id="flow6" sourceRef="assignedState" targetRef="escalatedState" />
+    <sequenceFlow id="flow7" sourceRef="assignedState" targetRef="reworkState" />
+    <sequenceFlow id="flow8" sourceRef="assignedState" targetRef="cancelledState" />
+
+    <!-- Reassigned State -->
+    <userTask id="reassignedState" name="Reassigned" activiti:assignee="newReviewer" />
+    <sequenceFlow id="flow9" sourceRef="reassignedState" targetRef="escalatedState" />
+    <sequenceFlow id="flow10" sourceRef="reassignedState" targetRef="approvedState" />
+    <sequenceFlow id="flow11" sourceRef="reassignedState" targetRef="declinedState" />
+    <sequenceFlow id="flow12" sourceRef="reassignedState" targetRef="reworkState" />
+    <sequenceFlow id="flow13" sourceRef="reassignedState" targetRef="cancelledState" />
+
+    <!-- Escalated State -->
+    <userTask id="escalatedState" name="Escalated" activiti:assignee="escalator" />
+    <sequenceFlow id="flow14" sourceRef="escalatedState" targetRef="deescalatedState" />
+    <sequenceFlow id="flow15" sourceRef="escalatedState" targetRef="approvedState" />
+    <sequenceFlow id="flow16" sourceRef="escalatedState" targetRef="declinedState" />
+    <sequenceFlow id="flow17" sourceRef="escalatedState" targetRef="reworkState" />
+    <sequenceFlow id="flow18" sourceRef="escalatedState" targetRef="cancelledState" />
+
+    <!-- Deescalated State -->
+    <userTask id="deescalatedState" name="Deescalated" activiti:assignee="escalator" />
+    <sequenceFlow id="flow19" sourceRef="deescalatedState" targetRef="approvedState" />
+    <sequenceFlow id="flow20" sourceRef="deescalatedState" targetRef="declinedState" />
+    <sequenceFlow id="flow21" sourceRef="deescalatedState" targetRef="reworkState" />
+    <sequenceFlow id="flow22" sourceRef="deescalatedState" targetRef="cancelledState" />
+
+    <!-- Approved State -->
+    <userTask id="approvedState" name="Approved" activiti:assignee="approver" />
+    <sequenceFlow id="flow23" sourceRef="approvedState" targetRef="preProductionCooldownState" />
+
+    <!-- PreProductionCooldown State -->
+    <userTask id="preProductionCooldownState" name="PreProductionCooldown" />
+    <sequenceFlow id="flow24" sourceRef="preProductionCooldownState" targetRef="productionState" />
+
+    <!-- Production State -->
+    <userTask id="productionState" name="Production" />
+    <sequenceFlow id="flow25" sourceRef="productionState" targetRef="cancelledState" />
+
+    <!-- Rework State -->
+    <userTask id="reworkState" name="Rework" activiti:assignee="requester" />
+    <serviceTask id="auditReworkState" name="Audit Rework State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit9" sourceRef="reworkState" targetRef="auditReworkState" />
+    <sequenceFlow id="flow26" sourceRef="auditReworkState" targetRef="productionState" />
+
+    <!-- Declined State -->
+    <userTask id="declinedState" name="Declined" activiti:assignee="approver" />
+    <serviceTask id="auditDeclinedState" name="Audit Declined State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit10" sourceRef="declinedState" targetRef="auditDeclinedState" />
+    <sequenceFlow id="flow27" sourceRef="auditDeclinedState" targetRef="cancelledState" />
+
+    <!-- Cancelled State -->
+    <userTask id="cancelledState" name="Cancelled" />
+    <serviceTask id="auditCancelledState" name="Audit Cancelled State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit11" sourceRef="cancelledState" targetRef="auditCancelledState" />
+    <sequenceFlow id="flow28" sourceRef="auditCancelledState" targetRef="softDeletedState" />
+
+    <!-- SoftDeleted State -->
+    <userTask id="softDeletedState" name="SoftDeleted" />
+    <serviceTask id="auditSoftDeletedState" name="Audit SoftDeleted State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit12" sourceRef="softDeletedState" targetRef="auditSoftDeletedState" />
+    <sequenceFlow id="flow29" sourceRef="auditSoftDeletedState" targetRef="policyBasedCleanupState" />
+
+    <!-- PolicyBasedCleanup (Final Step for Archiving) -->
+    <serviceTask id="policyBasedCleanupState" name="PolicyBasedCleanup" />
+    <serviceTask id="auditPolicyBasedCleanupState" name="Audit PolicyBasedCleanup State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flow30" sourceRef="policyBasedCleanupState" targetRef="auditPolicyBasedCleanupState" />
+    <sequenceFlow id="flow31" sourceRef="auditPolicyBasedCleanupState" targetRef="endEvent" />
+
+    <!-- End Event -->
+    <endEvent id="endEvent" name="End" />
+
+  </process>
+
+  <!-- Diagram Information -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_workflowProcess">
+    <bpmndi:BPMNPlane bpmnElement="workflowProcess">
+      <!-- Start Event Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_startEvent" bpmnElement="startEvent">
+        <dc:Bounds x="100" y="50" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      <!-- Created State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_createdState" bpmnElement="createdState">
+        <dc:Bounds x="200" y="50" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Assigned State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_assignedState" bpmnElement="assignedState">
+        <dc:Bounds x="350" y="50" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Reassigned State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_reassignedState" bpmnElement="reassignedState">
+        <dc:Bounds x="200" y="200" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Escalated State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_escalatedState" bpmnElement="escalatedState">
+        <dc:Bounds x="350" y="200" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Deescalated State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_deescalatedState" bpmnElement="deescalatedState">
+        <dc:Bounds x="200" y="350" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Approved State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_approvedState" bpmnElement="approvedState">
+        <dc:Bounds x="350" y="350" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- PreProductionCooldown State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_preProductionCooldownState" bpmnElement="preProductionCooldownState">
+        <dc:Bounds x="500" y="350" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Production State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_productionState" bpmnElement="productionState">
+        <dc:Bounds x="650" y="350" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Rework State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_reworkState" bpmnElement="reworkState">
+        <dc:Bounds x="200" y="500" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Declined State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_declinedState" bpmnElement="declinedState">
+        <dc:Bounds x="350" y="500" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Cancelled State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_cancelledState" bpmnElement="cancelledState">
+        <dc:Bounds x="500" y="500" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- SoftDeleted State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_softDeletedState" bpmnElement="softDeletedState">
+        <dc:Bounds x="350" y="650" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- PolicyBasedCleanup State Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_policyBasedCleanupState" bpmnElement="policyBasedCleanupState">
+        <dc:Bounds x="500" y="650" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- End Event Shape -->
+      <bpmndi:BPMNShape id="BPMNShape_endEvent" bpmnElement="endEvent">
+        <dc:Bounds x="650" y="650" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+      
+      <!-- Connecting Lines -->
+      <bpmndi:BPMNEdge id="BPMNEdge_flow1" bpmnElement="flow1">
+        <di:waypoint x="130" y="65"/>
+        <di:waypoint x="200" y="65"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow2" bpmnElement="flow2">
+        <di:waypoint x="300" y="65"/>
+        <di:waypoint x="350" y="65"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow3" bpmnElement="flow3">
+        <di:waypoint x="300" y="105"/>
+        <di:waypoint x="350" y="105"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow4" bpmnElement="flow4">
+        <di:waypoint x="300" y="125"/>
+        <di:waypoint x="350" y="125"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow5" bpmnElement="flow5">
+        <di:waypoint x="300" y="145"/>
+        <di:waypoint x="350" y="145"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow6" bpmnElement="flow6">
+        <di:waypoint x="300" y="165"/>
+        <di:waypoint x="350" y="165"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow7" bpmnElement="flow7">
+        <di:waypoint x="300" y="185"/>
+        <di:waypoint x="350" y="185"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow8" bpmnElement="flow8">
+        <di:waypoint x="300" y="205"/>
+        <di:waypoint x="350" y="205"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow9" bpmnElement="flow9">
+        <di:waypoint x="300" y="265"/>
+        <di:waypoint x="200" y="265"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow10" bpmnElement="flow10">
+        <di:waypoint x="300" y="265"/>
+        <di:waypoint x="350" y="265"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow11" bpmnElement="flow11">
+        <di:waypoint x="300" y="285"/>
+        <di:waypoint x="200" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow12" bpmnElement="flow12">
+        <di:waypoint x="300" y="305"/>
+        <di:waypoint x="350" y="305"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow13" bpmnElement="flow13">
+        <di:waypoint x="300" y="325"/>
+        <di:waypoint x="350" y="325"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow14" bpmnElement="flow14">
+        <di:waypoint x="300" y="385"/>
+        <di:waypoint x="350" y="385"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow15" bpmnElement="flow15">
+        <di:waypoint x="300" y="385"/>
+        <di:waypoint x="350" y="385"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow16" bpmnElement="flow16">
+        <di:waypoint x="300" y="405"/>
+        <di:waypoint x="350" y="405"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow17" bpmnElement="flow17">
+        <di:waypoint x="300" y="425"/>
+        <di:waypoint x="350" y="425"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow18" bpmnElement="flow18">
+        <di:waypoint x="300" y="445"/>
+        <di:waypoint x="350" y="445"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow19" bpmnElement="flow19">
+        <di:waypoint x="300" y="525"/>
+        <di:waypoint x="200" y="525"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow20" bpmnElement="flow20">
+        <di:waypoint x="300" y="525"/>
+        <di:waypoint x="350" y="525"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow21" bpmnElement="flow21">
+        <di:waypoint x="300" y="545"/>
+        <di:waypoint x="200" y="545"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow22" bpmnElement="flow22">
+        <di:waypoint x="300" y="565"/>
+        <di:waypoint x="350" y="565"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow23" bpmnElement="flow23">
+        <di:waypoint x="300" y="585"/>
+        <di:waypoint x="350" y="585"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow24" bpmnElement="flow24">
+        <di:waypoint x="300" y="685"/>
+        <di:waypoint x="200" y="685"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow25" bpmnElement="flow25">
+        <di:waypoint x="300" y="685"/>
+        <di:waypoint x="350" y="685"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow26" bpmnElement="flow26">
+        <di:waypoint x="300" y="705"/>
+        <di:waypoint x="500" y="705"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow27" bpmnElement="flow27">
+        <di:waypoint x="300" y="725"/>
+        <di:waypoint x="350" y="725"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow28" bpmnElement="flow28">
+        <di:waypoint x="300" y="745"/>
+        <di:waypoint x="350" y="745"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow29" bpmnElement="flow29">
+        <di:waypoint x="300" y="785"/>
+        <di:waypoint x="500" y="785"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow30" bpmnElement="flow30">
+        <di:waypoint x="300" y="805"/>
+        <di:waypoint x="350" y="805"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow31" bpmnElement="flow31">
+        <di:waypoint x="300" y="825"/>
+        <di:waypoint x="500" y="825"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow32" bpmnElement="flow32">
+        <di:waypoint x="300" y="845"/>
+        <di:waypoint x="350" y="845"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow33" bpmnElement="flow33">
+        <di:waypoint x="300" y="925"/>
+        <di:waypoint x="350" y="925"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow34" bpmnElement="flow34">
+        <di:waypoint x="300" y="945"/>
+        <di:waypoint x="350" y="945"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_flow35" bpmnElement="flow35">
+        <di:waypoint x="300" y="965"/>
+        <di:waypoint x="350" y="965"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNDiagram>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
