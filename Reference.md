@@ -617,3 +617,182 @@ CREATE TABLE ACT_RU_TASK (
     PRIMARY KEY (ID_)
 );
 ```
+
+
+```java
+Map<String, Object> variables = new HashMap<>();
+variables.put("preProductionTimeout", preProductionTimeout);
+runtimeService.startProcessInstanceByKey("workflowProcess", variables);
+
+@Service
+public class NotificationService implements JavaDelegate {
+    @Override
+    public void execute(DelegateExecution execution) {
+        String userId = (String) execution.getVariable("userId");
+        String taskName = (String) execution.getCurrentActivityName();
+        sendNotification(userId, taskName);
+    }
+
+    private void sendNotification(String userId, String taskName) {
+        // Logic to send email or message notification
+    }
+}
+
+
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:activiti="http://activiti.org/bpmn">
+  <process id="workflowProcess" name="Workflow Process" isExecutable="true">
+    
+    <!-- Start Event -->
+    <startEvent id="startEvent" name="Start" activiti:initiator="initiator" />
+    <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="createdState" />
+
+    <!-- Created State -->
+    <userTask id="createdState" name="Created" activiti:assignee="${initiator}" />
+    <serviceTask id="auditCreatedState" name="Audit Created State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit1" sourceRef="createdState" targetRef="auditCreatedState" />
+    <sequenceFlow id="flow2" sourceRef="auditCreatedState" targetRef="assignedState" />
+
+    <!-- Assigned State -->
+    <userTask id="assignedState" name="Assigned" activiti:assignee="reviewer" />
+    <serviceTask id="auditAssignedState" name="Audit Assigned State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit2" sourceRef="assignedState" targetRef="auditAssignedState" />
+    <sequenceFlow id="flow3" sourceRef="auditAssignedState" targetRef="reassignedState" />
+    <sequenceFlow id="flow4" sourceRef="auditAssignedState" targetRef="escalatedState" />
+    <sequenceFlow id="flow5" sourceRef="auditAssignedState" targetRef="approvedState" />
+    <sequenceFlow id="flow6" sourceRef="auditAssignedState" targetRef="declinedState" />
+    <sequenceFlow id="flow7" sourceRef="auditAssignedState" targetRef="reworkState" />
+    <sequenceFlow id="flow8" sourceRef="auditAssignedState" targetRef="cancelledState" />
+
+    <!-- Reassigned State -->
+    <userTask id="reassignedState" name="Reassigned" activiti:assignee="newReviewer" />
+    <serviceTask id="auditReassignedState" name="Audit Reassigned State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit3" sourceRef="reassignedState" targetRef="auditReassignedState" />
+    <sequenceFlow id="flow9" sourceRef="auditReassignedState" targetRef="escalatedState" />
+    <sequenceFlow id="flow10" sourceRef="auditReassignedState" targetRef="approvedState" />
+    <sequenceFlow id="flow11" sourceRef="auditReassignedState" targetRef="declinedState" />
+    <sequenceFlow id="flow12" sourceRef="auditReassignedState" targetRef="reworkState" />
+    <sequenceFlow id="flow13" sourceRef="auditReassignedState" targetRef="cancelledState" />
+
+    <!-- Escalated State -->
+    <userTask id="escalatedState" name="Escalated" activiti:assignee="escalator" />
+    <serviceTask id="auditEscalatedState" name="Audit Escalated State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit4" sourceRef="escalatedState" targetRef="auditEscalatedState" />
+    <sequenceFlow id="flow14" sourceRef="auditEscalatedState" targetRef="deescalatedState" />
+    <sequenceFlow id="flow15" sourceRef="auditEscalatedState" targetRef="approvedState" />
+    <sequenceFlow id="flow16" sourceRef="auditEscalatedState" targetRef="declinedState" />
+    <sequenceFlow id="flow17" sourceRef="auditEscalatedState" targetRef="reworkState" />
+    <sequenceFlow id="flow18" sourceRef="auditEscalatedState" targetRef="cancelledState" />
+
+    <!-- Deescalated State -->
+    <userTask id="deescalatedState" name="Deescalated" activiti:assignee="escalator" />
+    <serviceTask id="auditDeescalatedState" name="Audit Deescalated State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit5" sourceRef="deescalatedState" targetRef="auditDeescalatedState" />
+    <sequenceFlow id="flow19" sourceRef="auditDeescalatedState" targetRef="approvedState" />
+    <sequenceFlow id="flow20" sourceRef="auditDeescalatedState" targetRef="declinedState" />
+    <sequenceFlow id="flow21" sourceRef="auditDeescalatedState" targetRef="reworkState" />
+    <sequenceFlow id="flow22" sourceRef="auditDeescalatedState" targetRef="cancelledState" />
+
+    <!-- Approved State -->
+    <userTask id="approvedState" name="Approved" activiti:assignee="approver" />
+    <serviceTask id="auditApprovedState" name="Audit Approved State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit6" sourceRef="approvedState" targetRef="auditApprovedState" />
+    <sequenceFlow id="flow23" sourceRef="auditApprovedState" targetRef="preProductionCooldownState" />
+
+    <!-- PreProductionCooldown State -->
+    <userTask id="preProductionCooldownState" name="PreProductionCooldown" />
+    <serviceTask id="auditPreProductionCooldownState" name="Audit Pre-Production Cooldown State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit7" sourceRef="preProductionCooldownState" targetRef="auditPreProductionCooldownState" />
+    
+    <!-- Pre-Production Notification -->
+    <intermediateCatchEvent id="preProductionNotification">
+      <timerEventDefinition>
+        <timeDuration>${preProductionWarningTimeout}</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <serviceTask id="preProductionNotify" name="Notify Pre-Production Timeout" activiti:class="com.example.NotificationService" />
+    <sequenceFlow id="flow_preProdNotify" sourceRef="preProductionNotification" targetRef="preProductionNotify" />
+    
+    <!-- User Override Option for Pre-Production -->
+    <userTask id="preProductionOverride" name="Override Pre-Production Timeout" activiti:assignee="requester" />
+    <sequenceFlow id="flow_preProdOverride" sourceRef="preProductionNotify" targetRef="preProductionOverride" />
+    <sequenceFlow id="flow_preProdNext" sourceRef="preProductionOverride" targetRef="productionState" />
+
+    <boundaryEvent id="preProductionTimeoutEvent" attachedToRef="preProductionCooldownState" cancelActivity="true">
+      <timerEventDefinition>
+        <timeDuration>${preProductionTimeout}</timeDuration>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow24" sourceRef="auditPreProductionCooldownState" targetRef="productionState" />
+    <sequenceFlow id="flow_timeout_to_prod" sourceRef="preProductionTimeoutEvent" targetRef="productionState" />
+
+    <!-- Production State -->
+    <userTask id="productionState" name="Production" />
+    <serviceTask id="auditProductionState" name="Audit Production State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit8" sourceRef="productionState" targetRef="auditProductionState" />
+
+    <!-- Production Notification -->
+    <intermediateCatchEvent id="productionNotification">
+      <timerEventDefinition>
+        <timeDuration>${productionWarningTimeout}</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <serviceTask id="productionNotify" name="Notify Production Timeout" activiti:class="com.example.NotificationService" />
+    <sequenceFlow id="flow_prodNotify" sourceRef="productionNotification" targetRef="productionNotify" />
+
+    <!-- User Override Option for Production -->
+    <userTask id="productionOverride" name="Override Production Timeout" activiti:assignee="requester" />
+    <sequenceFlow id="flow_prodOverride" sourceRef="productionNotify" targetRef="productionOverride" />
+    <sequenceFlow id="flow_prodNext" sourceRef="productionOverride" targetRef="cancelledState" />
+    
+    <boundaryEvent id="productionTimeoutEvent" attachedToRef="productionState" cancelActivity="true">
+      <timerEventDefinition>
+        <timeDuration>${productionTimeout}</timeDuration>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow25" sourceRef="auditProductionState" targetRef="cancelledState" />
+    <sequenceFlow id="flow_timeout_to_cancel" sourceRef="productionTimeoutEvent" targetRef="cancelledState" />
+
+    <!-- Rework State -->
+    <userTask id="reworkState" name="Rework" activiti:assignee="reviewer" />
+    <serviceTask id="auditReworkState" name="Audit Rework State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit9" sourceRef="reworkState" targetRef="auditReworkState" />
+    <sequenceFlow id="flow26" sourceRef="auditReworkState" targetRef="productionState" />
+
+    <!-- Declined State -->
+    <userTask id="declinedState" name="Declined" activiti:assignee="approver" />
+    <serviceTask id="auditDeclinedState" name="Audit Declined State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit10" sourceRef="declinedState" targetRef="auditDeclinedState" />
+    <sequenceFlow id="flow27" sourceRef="auditDeclinedState" targetRef="cancelledState" />
+
+    <!-- Cancelled State -->
+    <userTask id="cancelledState" name="Cancelled" />
+    <serviceTask id="auditCancelledState" name="Audit Cancelled State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit11" sourceRef="cancelledState" targetRef="auditCancelledState" />
+    <sequenceFlow id="flow28" sourceRef="auditCancelledState" targetRef="softDeletedState" />
+
+    <!-- SoftDeleted State -->
+    <userTask id="softDeletedState" name="SoftDeleted" />
+    <serviceTask id="auditSoftDeletedState" name="Audit SoftDeleted State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flowAudit12" sourceRef="softDeletedState" targetRef="auditSoftDeletedState" />
+    <sequenceFlow id="flow29" sourceRef="auditSoftDeletedState" targetRef="policyBasedCleanupState" />
+
+    <!-- PolicyBasedCleanup (Final Step for Archiving) -->
+    <serviceTask id="policyBasedCleanupState" name="PolicyBasedCleanup" />
+    <serviceTask id="auditPolicyBasedCleanupState" name="Audit PolicyBasedCleanup State" activiti:class="com.example.AuditService" />
+    <sequenceFlow id="flow30" sourceRef="policyBasedCleanupState" targetRef="auditPolicyBasedCleanupState" />
+    <sequenceFlow id="flow31" sourceRef="auditPolicyBasedCleanupState" targetRef="endEvent" />
+
+    <!-- End Event -->
+    <endEvent id="endEvent" name="End" />
+
+  </process>
+</definitions>
+
+
+```
