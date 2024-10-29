@@ -430,16 +430,39 @@ public interface ProcessVariables {
             <incoming>flow_Created_to_Cancelled</incoming>
             <incoming>flow_Assigned_to_Cancelled</incoming>
             <incoming>flow_Escalated_to_Cancelled</incoming>
+            <incoming>flow_Production_to_Cancelled</incoming>
             <outgoing>flow_Cancelled_to_PreDelete</outgoing>
         </userTask>
 
-        <!-- Pre-Delete Cooldown State -->
+        <sequenceFlow id="flow_Cancelled_to_PreDelete" sourceRef="cancelledState" targetRef="preDeleteCooldownState"/>
+
+        <!-- Pre-Delete Cooldown -->
         <userTask id="preDeleteCooldownState" name="Pre-Delete Cooldown">
             <incoming>flow_Cancelled_to_PreDelete</incoming>
+            <outgoing>flow_PreDelete_to_SoftDeleted</outgoing>
         </userTask>
 
-    </process>
+        <boundaryEvent id="preDeleteTimer" attachedToRef="preDeleteCooldownState" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration>PT24H</timeDuration> <!-- Cooldown duration of 24 hours -->
+            </timerEventDefinition>
+            <outgoing>flow_PreDelete_to_SoftDeleted</outgoing>
+        </boundaryEvent>
 
+        <sequenceFlow id="flow_PreDelete_to_SoftDeleted" sourceRef="preDeleteTimer" targetRef="softDeletedState"/>
+
+        <!-- Soft Deleted State -->
+        <userTask id="softDeletedState" name="Request Soft Deleted">
+            <incoming>flow_PreDelete_to_SoftDeleted</incoming>
+            <outgoing>flow_to_PolicyBasedCleanup</outgoing>
+        </userTask>
+
+        <!-- Policy-Based Cleanup -->
+        <endEvent id="policyBasedCleanup" name="Cleanup">
+            <incoming>flow_to_PolicyBasedCleanup</incoming>
+        </endEvent>
+
+    </process>
 </definitions>
 
 ```
