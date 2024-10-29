@@ -269,4 +269,177 @@ public interface ProcessVariables {
     String EVENT_ID = "event_id";
 }
 ```
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" 
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:activiti="http://activiti.org/bpmn"
+             targetNamespace="http://www.example.com/workflow">
 
+    <process id="approvalWorkflow" name="Approval Workflow" isExecutable="true">
+
+        <!-- Initial Start Event -->
+        <startEvent id="startEvent" name="Request Created">
+            <outgoing>flow_to_Created</outgoing>
+        </startEvent>
+
+        <sequenceFlow id="flow_to_Created" sourceRef="startEvent" targetRef="createdState"/>
+
+        <!-- Created State -->
+        <userTask id="createdState" name="Request Created">
+            <outgoing>flow_Created_to_decision</outgoing>
+        </userTask>
+
+        <sequenceFlow id="flow_Created_to_decision" sourceRef="createdState" targetRef="gateway_Created_decision"/>
+
+        <exclusiveGateway id="gateway_Created_decision" name="Decision after Creation">
+            <incoming>flow_Created_to_decision</incoming>
+            <outgoing>flow_Created_to_Assigned</outgoing>
+            <outgoing>flow_Created_to_Cancelled</outgoing>
+        </exclusiveGateway>
+
+        <sequenceFlow id="flow_Created_to_Assigned" sourceRef="gateway_Created_decision" targetRef="assignedState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Assigned'}</conditionExpression>
+        </sequenceFlow>
+        
+        <sequenceFlow id="flow_Created_to_Cancelled" sourceRef="gateway_Created_decision" targetRef="cancelledState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Cancelled'}</conditionExpression>
+        </sequenceFlow>
+
+        <!-- Assigned State with Escalation Timer -->
+        <userTask id="assignedState" name="Request Assigned">
+            <incoming>flow_Created_to_Assigned</incoming>
+            <outgoing>flow_Assigned_to_decision</outgoing>
+        </userTask>
+
+        <boundaryEvent id="escalationTimer" attachedToRef="assignedState" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration>PT1H</timeDuration> <!-- Example: escalation after 1 hour -->
+            </timerEventDefinition>
+            <outgoing>flow_Assigned_to_Escalated</outgoing>
+        </boundaryEvent>
+
+        <sequenceFlow id="flow_Assigned_to_Escalated" sourceRef="escalationTimer" targetRef="escalatedState"/>
+
+        <sequenceFlow id="flow_Assigned_to_decision" sourceRef="assignedState" targetRef="gateway_Assigned_decision"/>
+
+        <exclusiveGateway id="gateway_Assigned_decision" name="Decision in Assigned">
+            <incoming>flow_Assigned_to_decision</incoming>
+            <outgoing>flow_Assigned_to_Approved</outgoing>
+            <outgoing>flow_Assigned_to_Declined</outgoing>
+            <outgoing>flow_Assigned_to_Rework</outgoing>
+            <outgoing>flow_Assigned_to_Cancelled</outgoing>
+        </exclusiveGateway>
+
+        <sequenceFlow id="flow_Assigned_to_Approved" sourceRef="gateway_Assigned_decision" targetRef="approvedState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Approved'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Assigned_to_Declined" sourceRef="gateway_Assigned_decision" targetRef="declinedState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Declined'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Assigned_to_Rework" sourceRef="gateway_Assigned_decision" targetRef="reworkState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Rework'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Assigned_to_Cancelled" sourceRef="gateway_Assigned_decision" targetRef="cancelledState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Cancelled'}</conditionExpression>
+        </sequenceFlow>
+
+        <!-- Escalated State -->
+        <userTask id="escalatedState" name="Request Escalated">
+            <incoming>flow_Assigned_to_Escalated</incoming>
+            <outgoing>flow_Escalated_to_decision</outgoing>
+        </userTask>
+
+        <sequenceFlow id="flow_Escalated_to_decision" sourceRef="escalatedState" targetRef="gateway_Escalated_decision"/>
+
+        <exclusiveGateway id="gateway_Escalated_decision" name="Decision in Escalated">
+            <incoming>flow_Escalated_to_decision</incoming>
+            <outgoing>flow_Escalated_to_Approved</outgoing>
+            <outgoing>flow_Escalated_to_Declined</outgoing>
+            <outgoing>flow_Escalated_to_Rework</outgoing>
+            <outgoing>flow_Escalated_to_Cancelled</outgoing>
+        </exclusiveGateway>
+
+        <sequenceFlow id="flow_Escalated_to_Approved" sourceRef="gateway_Escalated_decision" targetRef="approvedState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Approved'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Escalated_to_Declined" sourceRef="gateway_Escalated_decision" targetRef="declinedState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Declined'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Escalated_to_Rework" sourceRef="gateway_Escalated_decision" targetRef="reworkState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Rework'}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow_Escalated_to_Cancelled" sourceRef="gateway_Escalated_decision" targetRef="cancelledState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Cancelled'}</conditionExpression>
+        </sequenceFlow>
+
+        <!-- Approved State -->
+        <userTask id="approvedState" name="Request Approved">
+            <incoming>flow_Assigned_to_Approved</incoming>
+            <incoming>flow_Escalated_to_Approved</incoming>
+            <outgoing>flow_Approved_to_Cooldown</outgoing>
+        </userTask>
+
+        <sequenceFlow id="flow_Approved_to_Cooldown" sourceRef="approvedState" targetRef="preProductionCooldownState"/>
+
+        <!-- Pre-Production Cooldown -->
+        <userTask id="preProductionCooldownState" name="Pre-Production Cooldown">
+            <incoming>flow_Approved_to_Cooldown</incoming>
+            <outgoing>flow_Cooldown_to_Production</outgoing>
+        </userTask>
+
+        <boundaryEvent id="preProductionTimer" attachedToRef="preProductionCooldownState" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration>PT24H</timeDuration> <!-- Cooldown duration of 24 hours -->
+            </timerEventDefinition>
+            <outgoing>flow_Cooldown_to_Production</outgoing>
+        </boundaryEvent>
+
+        <sequenceFlow id="flow_Cooldown_to_Production" sourceRef="preProductionTimer" targetRef="productionState"/>
+
+        <!-- Production State -->
+        <userTask id="productionState" name="In Production">
+            <incoming>flow_Cooldown_to_Production</incoming>
+            <outgoing>flow_Production_to_Cancelled</outgoing>
+        </userTask>
+
+        <sequenceFlow id="flow_Production_to_Cancelled" sourceRef="productionState" targetRef="cancelledState">
+            <conditionExpression xsi:type="tFormalExpression">${nextState == 'Cancelled'}</conditionExpression>
+        </sequenceFlow>
+
+        <!-- Rework State -->
+        <userTask id="reworkState" name="Request in Rework">
+            <incoming>flow_Assigned_to_Rework</incoming>
+            <incoming>flow_Escalated_to_Rework</incoming>
+            <outgoing>flow_Rework_to_Assigned</outgoing>
+        </userTask>
+
+        <sequenceFlow id="flow_Rework_to_Assigned" sourceRef="reworkState" targetRef="assignedState"/>
+
+        <!-- Cancelled State -->
+        <userTask id="cancelledState" name="Request Cancelled">
+            <incoming>flow_Created_to_Cancelled</incoming>
+            <incoming>flow_Assigned_to_Cancelled</incoming>
+            <incoming>flow_Escalated_to_Cancelled</incoming>
+            <outgoing>flow_Cancelled_to_PreDelete</outgoing>
+        </userTask>
+
+        <!-- Pre-Delete Cooldown State -->
+        <userTask id="preDeleteCooldownState" name="Pre-Delete Cooldown">
+            <incoming>flow_Cancelled_to_PreDelete</incoming>
+        </userTask>
+
+    </process>
+
+</definitions>
+
+```
