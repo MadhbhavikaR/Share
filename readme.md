@@ -104,6 +104,11 @@ The workflow operates through the following key components:
 
 - **AutoEscalationTimeInSeconds**: Time period after which the request will be automatically escalated if there is no response.
 
+## Timers
+- **Auto Escalation Timer**: This timer triggers an escalation to the Escalated state after the specified AutoEscalationTimeInSeconds.
+- **Pre Production Cooldown Timer**: Triggers the transition to the Production state after the cooldown defined in PreProductionCooldownSeconds.
+- **Pre Delete Cooldown Timer**: Triggers the transition to the SoftDeleted state after the cooldown defined in PreDeleteCooldownSeconds.
+
 ## Personas Involved
 
 - **Requester**: Initiates the request and can cancel it at any time unless in a restricted state.
