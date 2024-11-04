@@ -120,3 +120,53 @@ The workflow operates through the following key components:
 - **Admin**: Installs the workflow file, ensuring that each workflow caters to a specific approval process, such as:
   - Entity Catalogue (identified by `<process id= ...>` as entity)
   - Job Catalogue (identified by `<process id= ...>` as job)
+
+## Logical Flow of states
+```mermaid
+graph TD
+    A[Start] --> B[Created]
+    B -->|Assign| C[Assigned]
+    B -->|Cancel| F[Cancelled]
+    B -->|Invalid Transition| E[Error]
+    
+    C -->|Escalate| D[Escalated]
+    C -->|Approve| H[Approved]
+    C -->|Decline| J[Declined]
+    C -->|Rework| K[Rework]
+    C -->|Cancel| F
+    C -->|Invalid Transition| E
+
+    D -->|Deescalate| M[Deescalated]
+    D -->|Approve| H
+    D -->|Decline| J
+    D -->|Rework| K
+    D -->|Cancel| F
+    D -->|Invalid Transition| E
+
+    M -->|Approve| H
+    M -->|Decline| J
+    M -->|Rework| K
+    M -->|Cancel| F
+    M -->|Invalid Transition| E
+
+    H -->|Pre Production Cooldown| N[Pre Production Cooldown]
+    H -->|Invalid Transition| E
+
+    N -->|Time Expired| O[Production]
+    N -->|Cancel| F
+    N -->|Invalid Transition| E
+
+    O -->|End| P[End]
+    O -->|Invalid Transition| E
+
+    K -->|Assign| C
+    K -->|Invalid Transition| E
+
+    J -->|End| P
+    J -->|Invalid Transition| E
+
+    F -->|End| P
+
+    E -->|Resolve| A
+    E -->|Terminate| P
+```
