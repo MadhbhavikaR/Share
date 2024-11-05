@@ -8,6 +8,7 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
+import java.util.Collections;
 
 @Configuration
 public class ActivitiConfig {
@@ -17,22 +18,29 @@ public class ActivitiConfig {
 
     @Bean
     @DependsOn("dataSource")
-    public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource, PlatformTransactionManager transactionManager) {
+    public SpringProcessEngineConfiguration processEngineConfiguration(
+            DataSource dataSource, 
+            PlatformTransactionManager transactionManager) {
+
         SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
         config.setDataSource(dataSource);
         config.setTransactionManager(transactionManager);
-        config.setDatabaseSchemaUpdate("true"); // Set true if schema update is allowed
+        config.setDatabaseSchemaUpdate("true"); // Set to true if schema update is allowed
         config.setDatabaseSchema("YOUR_SCHEMA_NAME");
 
-        // Register the TaskListener programmatically
-        config.setCustomPostBPMNParseListeners(Collections.singletonList(bpmnParse -> {
-            bpmnParse.getBpmnModel().getFlowElements().forEach(flowElement -> {
-                if (flowElement instanceof UserTask) {
-                    UserTask userTask = (UserTask) flowElement;
-                    userTask.addTaskListener(TaskListener.EVENTNAME_CREATE, customTaskListener);
+        // Attach TaskListener directly to configuration for specific task events
+        config.setCustomPreCommandInterceptors(
+            Collections.singletonList(new CommandInterceptor() {
+                @Override
+                public <T> T execute(CommandConfig config, Command<T> command) {
+                    if (command instanceof org.activiti.engine.impl.cmd.CompleteTaskCmd) {
+                        TaskEntity taskEntity = ((CompleteTaskCmd) command).getTaskEntity();
+                        taskEntity.addTaskListener(TaskListener.EVENTNAME_COMPLETE, customTaskListener);
+                    }
+                    return next.execute(config, command);
                 }
-            });
-        }));
+            })
+        );
 
         return config;
     }
