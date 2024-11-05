@@ -1,77 +1,69 @@
-import org.activiti.engine.RuntimeService;
-import org.activiti.engine.TaskService;
+import org.activiti.engine.*;
 import org.activiti.engine.delegate.TaskListener;
-import org.activiti.engine.impl.cfg.StandaloneProcessEngineConfiguration;
-import org.activiti.engine.impl.persistence.entity.TaskEntity;
 import org.activiti.spring.SpringProcessEngineConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.annotation.PostConstruct;
+import javax.sql.DataSource;
 
 @Configuration
-public class ActivitiConfiguration {
-
-    @Autowired
-    private RuntimeService runtimeService;
-
-    @Autowired
-    private TaskService taskService;
+public class ActivitiConfig {
 
     @Autowired
     private CustomTaskListener customTaskListener;
 
-    @Autowired
-    private SpringProcessEngineConfiguration processEngineConfiguration;
+    @Bean
+    @DependsOn("dataSource")
+    public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource, PlatformTransactionManager transactionManager) {
+        SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
+        config.setDataSource(dataSource);
+        config.setTransactionManager(transactionManager);
+        config.setDatabaseSchemaUpdate("true"); // Set true if schema update is allowed
+        config.setDatabaseSchema("YOUR_SCHEMA_NAME");
 
-    @PostConstruct
-    public void registerTaskListener() {
-        // Define a listener for a specific task in the process instance
-        processEngineConfiguration.getProcessEngineConfigurationConfigurer().addConfigurator(
-            configuration -> {
-                configuration.getTaskService().addEventListener(
-                    TaskEntity.class,
-                    customTaskListener
-                );
-            }
-        );
+        // Register the TaskListener programmatically
+        config.setCustomPostBPMNParseListeners(Collections.singletonList(bpmnParse -> {
+            bpmnParse.getBpmnModel().getFlowElements().forEach(flowElement -> {
+                if (flowElement instanceof UserTask) {
+                    UserTask userTask = (UserTask) flowElement;
+                    userTask.addTaskListener(TaskListener.EVENTNAME_CREATE, customTaskListener);
+                }
+            });
+        }));
+
+        return config;
     }
-}
 
+    @Bean
+    public ProcessEngine processEngine(SpringProcessEngineConfiguration config) {
+        return config.buildProcessEngine();
+    }
 
+    @Bean
+    public RepositoryService repositoryService(ProcessEngine processEngine) {
+        return processEngine.getRepositoryService();
+    }
 
+    @Bean
+    public RuntimeService runtimeService(ProcessEngine processEngine) {
+        return processEngine.getRuntimeService();
+    }
 
+    @Bean
+    public TaskService taskService(ProcessEngine processEngine) {
+        return processEngine.getTaskService();
+    }
 
-@Bean
-@DependsOn("dataSource")
-public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource, PlatformTransactionManager transactionManager) {
-    SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
-    config.setDataSource(dataSource);
-    config.setTransactionManager(transactionManager);
-    config.setDatabaseSchemaUpdate(allowActivitySchemaUpdate);
-    config.setDatabaseSchema(schemaName);
-//        config.setJobExecutorActivate(true);
-    return config;
-}
+    @Bean
+    public HistoryService historyService(ProcessEngine processEngine) {
+        return processEngine.getHistoryService();
+    }
 
-
-@Bean
-public ProcessEngine processEngine(SpringProcessEngineConfiguration config) {
-    return config.buildProcessEngine();
-}
-
-@Bean
-public RepositoryService repositoryService(ProcessEngine processEngine) {
-    return processEngine.getRepositoryService();
-}
-
-@Bean
-public RuntimeService runtimeService(ProcessEngine processEngine) {
-    return processEngine.getRuntimeService();
-}
-
-@Bean
-public TaskService taskService(ProcessEngine processEngine) {
-    return processEngine.getTaskService();
+    @Bean
+    public CustomTaskListener customTaskListener() {
+        return new CustomTaskListener();
+    }
 }
