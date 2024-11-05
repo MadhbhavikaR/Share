@@ -1,5 +1,10 @@
 import org.activiti.engine.*;
 import org.activiti.engine.delegate.TaskListener;
+import org.activiti.engine.delegate.event.ActivitiEvent;
+import org.activiti.engine.delegate.event.ActivitiEventListener;
+import org.activiti.engine.delegate.event.impl.ActivitiEntityEventImpl;
+import org.activiti.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.activiti.engine.task.Task;
 import org.activiti.spring.SpringProcessEngineConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -8,7 +13,6 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.util.Collections;
 
 @Configuration
 public class ActivitiConfig {
@@ -19,7 +23,7 @@ public class ActivitiConfig {
     @Bean
     @DependsOn("dataSource")
     public SpringProcessEngineConfiguration processEngineConfiguration(
-            DataSource dataSource, 
+            DataSource dataSource,
             PlatformTransactionManager transactionManager) {
 
         SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
@@ -28,19 +32,25 @@ public class ActivitiConfig {
         config.setDatabaseSchemaUpdate("true"); // Set to true if schema update is allowed
         config.setDatabaseSchema("YOUR_SCHEMA_NAME");
 
-        // Attach TaskListener directly to configuration for specific task events
-        config.setCustomPreCommandInterceptors(
-            Collections.singletonList(new CommandInterceptor() {
-                @Override
-                public <T> T execute(CommandConfig config, Command<T> command) {
-                    if (command instanceof org.activiti.engine.impl.cmd.CompleteTaskCmd) {
-                        TaskEntity taskEntity = ((CompleteTaskCmd) command).getTaskEntity();
-                        taskEntity.addTaskListener(TaskListener.EVENTNAME_COMPLETE, customTaskListener);
+        // Attach a global event listener for task creation to add the custom TaskListener
+        config.setEventListeners(Collections.singletonList(new ActivitiEventListener() {
+            @Override
+            public void onEvent(ActivitiEvent event) {
+                if (event instanceof ActivitiEntityEventImpl) {
+                    Object entity = ((ActivitiEntityEventImpl) event).getEntity();
+                    if (entity instanceof Task) {
+                        Task task = (Task) entity;
+                        // Attach the TaskListener to the task's complete event
+                        task.addTaskListener(TaskListener.EVENTNAME_COMPLETE, customTaskListener);
                     }
-                    return next.execute(config, command);
                 }
-            })
-        );
+            }
+
+            @Override
+            public boolean isFailOnException() {
+                return false; // set to true if you want the process to fail on listener exception
+            }
+        }));
 
         return config;
     }
