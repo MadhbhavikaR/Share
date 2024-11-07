@@ -1,77 +1,236 @@
-import org.activiti.engine.RuntimeService;
-import org.activiti.engine.TaskService;
-import org.activiti.engine.delegate.TaskListener;
-import org.activiti.engine.impl.cfg.StandaloneProcessEngineConfiguration;
-import org.activiti.engine.impl.persistence.entity.TaskEntity;
-import org.activiti.spring.SpringProcessEngineConfiguration;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+FIXME : 1. Pre delete cooldown missing
+        2. End condition needs to be added to the DECLINED, PRODUCTION (for production how do we handle if the workflow stops?)
+        3. Error state recovery? should we allow to move to previous state just like that? or we handle it via internal state-machine
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL
+                    http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd"
+             xmlns:activiti="http://activiti.org/bpmn"
+             targetNamespace="Approvals">
+    <process id="entity" name="Workflow Process for Entity Catalogue Approval" isExecutable="true">
 
-import javax.annotation.PostConstruct;
+        <!-- Initial Start Event -->
+        <startEvent id="StartEvent" name="Start"/>
+        <sequenceFlow id="flowStartToCreated" sourceRef="StartEvent" targetRef="Created"/>
 
-@Configuration
-public class ActivitiConfiguration {
+        <!-- Created State -->
+        <userTask id="Created" name="Created">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowCreatedToAssigned" sourceRef="Created" targetRef="Assigned">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowCreatedToCancelled" sourceRef="Created" targetRef="Cancelled">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowCreatedToError" sourceRef="Created" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!(next_state.equals('ASSIGNED') || next_state.equals('CANCELLED'))}]]>
+            </conditionExpression>
+        </sequenceFlow>
 
-    @Autowired
-    private RuntimeService runtimeService;
+        <!-- Assigned State -->
+        <userTask id="Assigned" name="Assigned">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowAssignedToEscalated" sourceRef="Assigned" targetRef="Escalated">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state == 'ESCALATED'}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToApproved" sourceRef="Assigned" targetRef="Approved">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToDeclined" sourceRef="Assigned" targetRef="Declined">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToRework" sourceRef="Assigned" targetRef="Rework">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToCancelled" sourceRef="Assigned" targetRef="Cancelled">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToError" sourceRef="Assigned" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!(next_state.equals('ESCALATED') || next_state.equals('APPROVED') || next_state.equals('DECLINED') || next_state.equals('REWORK') || next_state.equals('CANCELLED'))}]]>
+            </conditionExpression>
+        </sequenceFlow>
 
-    @Autowired
-    private TaskService taskService;
+        <!-- Auto Escalation Timer -->
+        <intermediateCatchEvent id="AutoEscalationTimer" name="Auto Escalation Timer">
+            <timerEventDefinition>
+                <timeDuration xsi:type="tFormalExpression"><![CDATA[PT${auto_escalation_time_seconds}S]]></timeDuration>
+            </timerEventDefinition>
+        </intermediateCatchEvent>
+        <sequenceFlow id="flowAutoEscalationToEscalated" sourceRef="AutoEscalationTimer" targetRef="Escalated"/>
 
-    @Autowired
-    private CustomTaskListener customTaskListener;
+        <!-- Escalated State -->
+        <userTask id="Escalated" name="Escalated">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowEscalatedToDeescalated" sourceRef="Escalated" targetRef="Deescalated">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DEESCALATED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToApproved" sourceRef="Escalated" targetRef="Approved">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToDeclined" sourceRef="Escalated" targetRef="Declined">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToRework" sourceRef="Escalated" targetRef="Rework">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToCancelled" sourceRef="Escalated" targetRef="Cancelled">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToError" sourceRef="Escalated" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!(next_state.equals('DEESCALATED') || next_state.equals('APPROVED') || next_state.equals('DECLINED') || next_state.equals('REWORK') || next_state.equals('CANCELLED'))}]]></conditionExpression>
 
-    @Autowired
-    private SpringProcessEngineConfiguration processEngineConfiguration;
+        </sequenceFlow>
 
-    @PostConstruct
-    public void registerTaskListener() {
-        // Define a listener for a specific task in the process instance
-        processEngineConfiguration.getProcessEngineConfigurationConfigurer().addConfigurator(
-            configuration -> {
-                configuration.getTaskService().addEventListener(
-                    TaskEntity.class,
-                    customTaskListener
-                );
-            }
-        );
-    }
-}
+        <!-- Deescalated State -->
+        <userTask id="Deescalated" name="Deescalated">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowDeescalatedToApproved" sourceRef="Deescalated" targetRef="Approved">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeescalatedToDeclined" sourceRef="Deescalated" targetRef="Declined">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeescalatedToRework" sourceRef="Deescalated" targetRef="Rework">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeescalatedToCancelled" sourceRef="Deescalated" targetRef="Cancelled">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeescalatedToError" sourceRef="Deescalated" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!(next_state.equals('APPROVED') || next_state.equals('DECLINED') || next_state.equals('REWORK') || next_state.equals('CANCELLED'))}]]>
+            </conditionExpression>
+        </sequenceFlow>
 
+        <!-- Declined State -->
+        <userTask id="Declined" name="Declined">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowDeclinedToEnd" sourceRef="Declined" targetRef="EndEvent"/>
+        <sequenceFlow id="flowDeclinedToError" sourceRef="Declined" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!next_state.equals('END')}]]></conditionExpression>
+        </sequenceFlow>
 
+        <!-- Approved State -->
+        <userTask id="Approved" name="Approved">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowApprovedToPreProductionCooldown" sourceRef="Approved"
+                      targetRef="PreProductionCooldown"/>
+        <sequenceFlow id="flowApprovedToError" sourceRef="Approved" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!next_state.equals('PRE_PRODUCTION_COOLDOWN')}]]></conditionExpression>
+        </sequenceFlow>
 
+        <!-- Pre Production Cooldown Timer -->
+        <intermediateCatchEvent id="PreProductionCooldownTimer" name="Pre Production Cooldown Timer">
+            <timerEventDefinition>
+                <timeDuration xsi:type="tFormalExpression">
+                    <![CDATA[PT${pre_production_cooldown_seconds}S]]></timeDuration>
+            </timerEventDefinition>
+        </intermediateCatchEvent>
+        <sequenceFlow id="flowPreProductionCooldownToProduction"
+                      sourceRef="PreProductionCooldownTimer" targetRef="Production"/>
 
+        <!-- Pre Production Cooldown State -->
+        <userTask id="PreProductionCooldown" name="Pre Production Cooldown">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowPreProductionCooldownToRework" sourceRef="PreProductionCooldown"
+                      targetRef="Rework">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowPreProductionCooldownToError" sourceRef="PreProductionCooldown" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
 
-@Bean
-@DependsOn("dataSource")
-public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource, PlatformTransactionManager transactionManager) {
-    SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
-    config.setDataSource(dataSource);
-    config.setTransactionManager(transactionManager);
-    config.setDatabaseSchemaUpdate(allowActivitySchemaUpdate);
-    config.setDatabaseSchema(schemaName);
-//        config.setJobExecutorActivate(true);
-    return config;
-}
+        <!-- Production State -->
+        <userTask id="Production" name="Production">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowProductionToEnd" sourceRef="Production" targetRef="EndEvent"/>
+        <sequenceFlow id="flowProductionToError" sourceRef="Production" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!next_state.equals('END')}]]></conditionExpression>
+        </sequenceFlow>
 
+        <!-- Rework State -->
+        <userTask id="Rework" name="Rework">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowReworkToAssigned" sourceRef="Rework" targetRef="Assigned">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowReworkToError" sourceRef="Rework" targetRef="Error">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${!next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
 
-@Bean
-public ProcessEngine processEngine(SpringProcessEngineConfiguration config) {
-    return config.buildProcessEngine();
-}
+        <!-- Cancelled State -->
+        <userTask id="Cancelled" name="Cancelled">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowCancelledToEnd" sourceRef="Cancelled" targetRef="EndEvent"/>
 
-@Bean
-public RepositoryService repositoryService(ProcessEngine processEngine) {
-    return processEngine.getRepositoryService();
-}
+        <!-- Error State -->
+        <userTask id="Error" name="Error">
+            <!-- <extensionElements> -->
+            <!--          <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskCompletionListener"/> -->
+            <!--  </extensionElements> -->
+        </userTask>
+        <sequenceFlow id="flowErrorToEnd" sourceRef="Error" targetRef="EndEvent"/>
 
-@Bean
-public RuntimeService runtimeService(ProcessEngine processEngine) {
-    return processEngine.getRuntimeService();
-}
-
-@Bean
-public TaskService taskService(ProcessEngine processEngine) {
-    return processEngine.getTaskService();
-}
+        <!-- End Event -->
+        <endEvent id="EndEvent" name="End"/>
+    </process>
+</definitions>
