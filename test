@@ -260,3 +260,38 @@ FIXME : 1. Pre delete cooldown missing, should be  ${pre_delete_cooldown} which 
         <endEvent id="EndEvent" name="End"/>
     </process>
 </definitions>
+
+
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created
+    Created --> Assigned
+    Created --> Cancelled
+    Assigned --> Escalated: After configured time / Manual, with comment
+    Assigned --> Approved
+    Assigned --> Declined
+    Assigned --> Rework
+    Assigned --> Cancelled
+    Escalated --> Deescalated: With comment
+    Escalated --> Approved
+    Escalated --> Declined
+    Escalated --> Rework
+    Escalated --> Cancelled
+    Deescalated --> Approved
+    Deescalated --> Declined
+    Deescalated --> Rework
+    Deescalated --> Cancelled
+    Approved --> PreProductionCooldown
+    PreProductionCooldown --> Production: After configured time
+    PreProductionCooldown --> Rework: Manual intervention only
+    Production --> Cancelled
+    Rework --> Assigned: Auto-assigned to same reviewer
+    Rework --> Cancelled
+    Cancelled --> PreDeleteCooldown: After configured time
+    PreDeleteCooldown --> SoftDeleted: POINT OF NO RETURN
+    PreDeleteCooldown --> Production: Manual intervention only if previous state was Production
+    SoftDeleted --> PolicyBasedCleanup: Not an actual state, After this point the record is purged / archived
+    PolicyBasedCleanup --> [*]
+```
