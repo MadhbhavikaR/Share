@@ -1,7 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-FIXME : 1. Pre delete cooldown missing
-        2. End condition needs to be added to the DECLINED, PRODUCTION (for production how do we handle if the workflow stops?)
+FIXME : 1. Pre delete cooldown missing, should be  ${pre_delete_cooldown} which is in seconds like other timers here
+            Cancelled to Pre delete timer if the timer expires state will change to user Task soft DELETED
+            if before the timer expires if there is a request to cancel the timer then it should cancel the timer and if and only if the previous state was production then it should move to production.
+            else it should any way move to Soft delete after the timer expires. on any error offcourse it should move to error
+            Some thing of this sort
+             Cancelled State
+    <userTask id="Cancelled" name="Cancelled" />
+    <sequenceFlow id="flowCancelledToPreDeleteCooldown" sourceRef="Cancelled" targetRef="PreDeleteCooldown" />
+
+    Pre Delete Cooldown Timer
+    <intermediateCatchEvent id="PreDeleteCooldownTimer" name="Pre Delete Cooldown Timer">
+      <timerEventDefinition>
+        <timeDuration xsi:type="tFormalExpression"><![CDATA[PT${PreDeleteCooldownSeconds}S]]></timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flowPreDeleteCooldownToSoftDeleted" sourceRef="PreDeleteCooldownTimer" targetRef="SoftDeleted" />
+
+    Pre Delete Cooldown State
+    <userTask id="PreDeleteCooldown" name="Pre Delete Cooldown" />
+    <sequenceFlow id="flowPreDeleteCooldownToProduction" sourceRef="PreDeleteCooldown" targetRef="Production">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[nextState == 'Production' && previousState == 'Production']]></conditionExpression>
+    </sequenceFlow>
+
+    Soft Deleted State
+    <userTask id="SoftDeleted" name="Soft Deleted" />
+
+
+        2. End condition needs to be added to the DECLINED
         3. Error state recovery? should we allow to move to previous state just like that? or we handle it via internal state-machine
 -->
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
