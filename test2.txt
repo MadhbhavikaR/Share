@@ -1,0 +1,97 @@
+{
+  "entityId": "",    // Unique ID of the entity in question
+  "entityType": "", // "Type of the entity in question", possible values PRODUCER, CONSUMER
+  "userId": "", // The user id of the user responsible for triggering this event
+  "producerId": "", // Unique ID of the producer in question
+  "consumerId": "", // Unique ID of the consumer in question
+  "jobId": "", // Unique ID of the job in question
+  "pipelineId": "", // Unique ID of the pipeline in question
+  "runId": "", // Unique ID of the run for the job
+  "step": "", // Unique accelerator name for this data flow, Possible values REGISTRATION, APPROVAL, MIGRATION, INGESTION, TRANSFORMATION, LOAD, RECONCILIATION, QUALITY, ANONYMIZATION, CATALOGUE
+  "action": "", // CRUD action that happened on the data, which triggered this event, possible values CREATED, DELETED, UPDATED, LINKED
+  "eventTime": 00000000000000,  // The time in epoch milliseconds when this event was created
+  "correlationId": "", // Unique Correlation id for tracking the entire fend to end flow
+  "comment": "", // Additonal comment if any for this event
+  "error": {    // Error details that may have triggered this event
+    "errorType": "", // The type of the error being reported, possible values FUNCTIONAL, TECHNICAL, SYSTEM
+    "errorDetails": "" // The details of the error
+  },
+  "stepDetails": { // DTO representing stats for each state with batch level granularity
+    "batchNumber": 0,// The unique back number for this step
+    "action" : "START", // The stage in which this step is in., possible values START, PROCESSING, END
+    "rowsProcessed": 0, // The number of rows processed
+    "rowsInserted": 0, // The number of rows inserted
+    "rowsUpdated": 0, // The number of rows updated
+    "rowsDeleted": 0, // The number of rows deleted
+    "nodeId": "", // The unique node id on which this step was run, could be an IP address or host name
+    "technicalQuality": 0.0, // The technical quality of the step based on the rows processed
+    "businessQuality": 0.0, // Business level quality of the step based on the rows processed
+    "sourceVersion": "", // The version of the code that is currently processing this step
+    "status": "", // The end result of this step processing, Possible values SUCCESS, FAILURE, HALTED, PAUSED
+    "startTime": 00000000000000, // The Starting time of this step, epoch in ms
+    "endTime": 00000000000000, //The Ending time of this step, epoch in ms
+  },
+  "fields": [{// Fields that have changed that may have triggered this event, Delta changes for UPDATE / LINKED action, incase of Action = create : entire data should come here
+    "entityPk": "", // The primary key ID of the entity that is being audited, the id of the entity that is being audited, eg: if it is a producer, then the producer id
+    "tableName": "", // The name of the entity table that is being audited
+    "entityName" : "", // The name of the entity that is being audited
+    "data": "" //  The data of the entity in a json format with keys being the column name and value being the actual value
+  }],
+  "dataQuality": { // Data Quality details for the step
+    "dataQualityRunStatus": "SUCCESS", // Indicates the status of the quality, possible values SUCCESS | FAILURE
+    "acceptableFailureThreshold" : 0.0, // The threshold value set
+    "threshold": "BREACHED", // Status of the threshold clearance
+    "passPercentage": 30.0, // Percentage of passing records
+    "totalRecordCount": 10, // Total count of the records processed
+    "validRecordCount": 3, // Count of valid record out of the total records processed
+    "invalidRecordCount": 7, // Count of invalid record out of the total records processed
+    "errorDetail": "", // Error field populated when there is an error
+    "invalidColumnMetrics": [ // Stats Details of the invalid columns
+      {
+        "attributeName": "some column", // Name of the attribute
+        "metrics": [ // Check results in terms of the counts
+          {
+            "check": "Null check", // Name of the check that was run on this column
+            "count": 0, // Check results in terms of the counts
+            "type": "count" // The type of data the count variable represents Possible values COUNT | PERCENTAGE
+          }
+        ]
+      }
+    ]
+  },
+  "approval": { // DTO representing an Approval event
+    "taskType": "", //The type of request for approval, possible values  JOB , Entity
+    "workflowId": "", // A unique ID for the approval request
+    "requester": "", // User who requested for an approval
+    "reviewer": "", // User who reviewed the request
+    "workflowState": "", // Status of the review possible values, 'CANCELLED', 'REWORK', 'PRODUCTION','PRE_DELETE_COOLDOWN','PRE_PRODUCTION_COOLDOWN','DECLINED', 'APPROVED', 'DEESCALATED', 'ESCALATED', 'ASSIGNED', 'SOFT_DELETED', 'CREATED'
+    "tenant": "", // A unique ID allocated for differentiating the different approval processes
+    "coolDownSeconds": 0, // eg production cooldown, Cooldown that would be applied before moving to the next state of approval
+    "isEscalated": true, // Is the approval request escalated
+    "comments": [ // List of comments associated with this approval
+      {
+        "author": "", // ID of the user who commented
+        "comment": "", // The comment
+        "time": 00000000000000, // Time in Epoch milliseconds when this comment was made
+        "isDeleted": false // Has the comment been deleted
+      }
+    ]
+  },
+  "reconciliation": {
+    "dataReconRunStatus" : "SUCCESS",
+    "reconStatus" : "MISMATCH",
+    "sourceCount" : 5,
+    "targetCount" : 4,
+    "reconMetrics" : [
+      {
+        "type" : "CountCheck",
+        "status" : "MISMATCH"
+      },
+      {
+        "type" : "ChecksumCheck",
+        "status" : "SKIP"
+      }
+    ],
+    "errorMessage" : null
+  }
+}
