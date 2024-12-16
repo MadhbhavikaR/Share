@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    1. DO NOT Change the User Task Ids (<userTask id=) they are based on the com.lbg.foundation.workflow.constants.WorkflowState
+    2. Each User Task should have the
+       <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+       for create and complete event
+    TODO: test if the timers resume after restart of server
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL
+                    http://www.omg.org/spec/BPMN/2.0/20100501/BPMN20.xsd"
+    xmlns:activiti="http://activiti.org/bpmn" targetNamespace="Approvals">
+    <process id="entity" name="Workflow Process for Entity Catalogue Approval" isExecutable="true">
+
+        <!-- Initial Start Event -->
+        <startEvent id="StartEvent" name="Start"/>
+        <sequenceFlow id="flowStartToCreated" sourceRef="StartEvent" targetRef="CREATED"/>
+
+        <!-- Created State -->
+        <userTask id="CREATED" name="Created">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <!-- Auto Escalation Timer -->
+        <!--  FIXME: owner and other data is null -->
+        <boundaryEvent id="CreatedAutoEscalationTimer" name="Auto Escalation Timer for Created" attachedToRef="CREATED" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration xsi:type="tFormalExpression"><![CDATA[PT${auto_escalation_time_seconds}S]]></timeDuration>
+            </timerEventDefinition>
+        </boundaryEvent>
+        <sequenceFlow id="flowCreatedToAutoEscalated" sourceRef="CreatedAutoEscalationTimer" targetRef="ESCALATED"/>
+        <sequenceFlow id="flowCreatedToAssigned" sourceRef="CREATED" targetRef="ASSIGNED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowCreatedToCancelled" sourceRef="CREATED" targetRef="CANCELLED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowCreatedToEscalated" sourceRef="CREATED" targetRef="ESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${(next_state.equals('ESCALATED'))}]]></conditionExpression>
+        </sequenceFlow>
+        <!--          -->        <!-- Created Error handling -->
+        <!--         <sequenceFlow id="flowCreatedToCreated" sourceRef="CREATED" targetRef="CREATED"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('ASSIGNED') || next_state.equals('CANCELLED') || next_state.equals('ESCALATED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+
+        <!-- Escalated State -->
+        <userTask id="ESCALATED" name="Escalated">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowEscalatedToAssigned" sourceRef="ESCALATED" targetRef="ASSIGNED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToApproved" sourceRef="ESCALATED" targetRef="APPROVED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToDeclined" sourceRef="ESCALATED" targetRef="DECLINED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToRework" sourceRef="ESCALATED" targetRef="REWORK">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowEscalatedToCancelled" sourceRef="ESCALATED" targetRef="CANCELLED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <!--          -->        <!-- Escalated Error handling -->
+        <!--         <sequenceFlow id="flowEscalatedToEscalated" sourceRef="ESCALATED" targetRef="ESCALATED"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('ASSIGNED') || next_state.equals('APPROVED') || next_state.equals('DECLINED') || next_state.equals('REWORK') || next_state.equals('CANCELLED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- Assigned State -->
+        <userTask id="ASSIGNED" name="Assigned">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <!-- Auto Escalation Timer for created state -->
+        <boundaryEvent id="AssignedAutoEscalationTimer" name="Auto Escalation Timer for Assigned state" attachedToRef="ASSIGNED" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration xsi:type="tFormalExpression"><![CDATA[PT${auto_escalation_time_seconds}S]]></timeDuration>
+            </timerEventDefinition>
+        </boundaryEvent>
+        <sequenceFlow id="flowAssignedAutoEscalated" sourceRef="AssignedAutoEscalationTimer" targetRef="ESCALATED"/>
+        <sequenceFlow id="flowAssignedToEscalated" sourceRef="ASSIGNED" targetRef="ESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${(next_state.equals('ESCALATED'))}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToApproved" sourceRef="ASSIGNED" targetRef="APPROVED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToDeclined" sourceRef="ASSIGNED" targetRef="DECLINED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToRework" sourceRef="ASSIGNED" targetRef="REWORK">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('REWORK')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowAssignedToCancelled" sourceRef="ASSIGNED" targetRef="CANCELLED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <!--          -->        <!-- Assigned Error handling -->
+        <!--         <sequenceFlow id="flowAssignedToAssigned" sourceRef="ASSIGNED" targetRef="ASSIGNED"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('ESCALATED') || next_state.equals('APPROVED') || next_state.equals('DECLINED') || next_state.equals('REWORK') || next_state.equals('CANCELLED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- Approved State -->
+        <userTask id="APPROVED" name="Approved">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowApprovedToPreProductionCooldown" sourceRef="APPROVED" targetRef="PRE_PRODUCTION_COOLDOWN"/>
+        <sequenceFlow id="flowApprovedToDeescalated" sourceRef="APPROVED" targetRef="DEESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${(escalated)}]]></conditionExpression>
+        </sequenceFlow>
+
+        <!-- Pre Production Cooldown State -->
+        <userTask id="PRE_PRODUCTION_COOLDOWN" name="Pre Production Cooldown">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <!-- Pre Production Cooldown Timer -->
+        <boundaryEvent id="PreProductionCooldownTimer" name="Pre Production Cooldown Timer" attachedToRef="APPROVED" cancelActivity="true">
+            <timerEventDefinition>
+                <timeDuration xsi:type="tFormalExpression">
+                    <![CDATA[PT${pre_production_cooldown_seconds}S]]></timeDuration>
+            </timerEventDefinition>
+        </boundaryEvent>
+        <sequenceFlow id="flowPreProductionCooldownToProduction" sourceRef="PreProductionCooldownTimer" targetRef="PRODUCTION"/>
+<!--         <sequenceFlow id="flowPreProductionCooldownToRework" sourceRef="PRE_PRODUCTION_COOLDOWN" targetRef="REWORK"> -->
+<!--             <conditionExpression xsi:type="tFormalExpression"> -->
+<!--                 <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression> -->
+<!--         </sequenceFlow> -->
+        <!--          -->        <!-- PreProductionCooldown Error handling -->
+        <!--         <sequenceFlow id="flowPreProductionCooldownToPreProductionCooldown" sourceRef="PRE_PRODUCTION_COOLDOWN" -->
+        <!-- targetRef="PRE_PRODUCTION_COOLDOWN"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('CANCELLED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- Production State -->
+        <userTask id="PRODUCTION" name="Production">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+         <sequenceFlow id="flowProductionToEnd" sourceRef="PRODUCTION" targetRef="EndEvent"/>
+<!--         <sequenceFlow id="flowProductionToCancelled" sourceRef="PRODUCTION" targetRef="CANCELLED"> -->
+<!--             <conditionExpression xsi:type="tFormalExpression"> -->
+<!--                 <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression> -->
+<!--         </sequenceFlow> -->
+        <!--          -->        <!-- Production Error handling -->
+        <!--         <sequenceFlow id="flowProductionToProduction" sourceRef="PRODUCTION" targetRef="PRODUCTION"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('CANCELLED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- Rework State -->
+        <userTask id="REWORK" name="Rework">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowReworkToAssigned" sourceRef="REWORK" targetRef="ASSIGNED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('ASSIGNED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowReworkToDeescalated" sourceRef="REWORK" targetRef="DEESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${(escalated && next_state.equals('CANCELLED'))}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowReworkToCancelled" sourceRef="REWORK" targetRef="CANCELLED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression>
+        </sequenceFlow>
+        <!-- Rework Error handling -->
+        <!--         <sequenceFlow id="flowReworkToRework" sourceRef="REWORK" targetRef="REWORK"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('CANCELLED') || next_state.equals('ASSIGNED'))}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- Cancelled State -->
+        <userTask id="CANCELLED" name="Cancelled">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowCancelledToDeescalated" sourceRef="CANCELLED" targetRef="DEESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${escalated}]]></conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flowCancelledToEnd" sourceRef="CANCELLED" targetRef="EndEvent"/>
+<!--         <sequenceFlow id="flowCancelledToPreDeleteCooldown" sourceRef="CANCELLED" targetRef="PRE_DELETE_COOLDOWN"/> -->
+
+        <!-- Declined State -->
+        <userTask id="DECLINED" name="Declined">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowDeclinedToDeescalated" sourceRef="DECLINED" targetRef="DEESCALATED">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${escalated}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeclinedToEnd" sourceRef="DECLINED" targetRef="EndEvent"/>
+
+        <!-- Deescalated State -->
+        <userTask id="DEESCALATED" name="DEESCALATED">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+                <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </userTask>
+        <sequenceFlow id="flowApprovedDeescalatedToPreProductionCooldown" sourceRef="DEESCALATED" targetRef="PRE_PRODUCTION_COOLDOWN">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('APPROVED')}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowDeescalatedToDeclined" sourceRef="DEESCALATED" targetRef="EndEvent">
+            <conditionExpression xsi:type="tFormalExpression">
+                <![CDATA[${next_state.equals('DECLINED')}]]></conditionExpression>
+        </sequenceFlow>
+<!--         <sequenceFlow id="flowDeescalatedToCancelled" sourceRef="DEESCALATED" targetRef="PRE_DELETE_COOLDOWN"> -->
+<!--             <conditionExpression xsi:type="tFormalExpression"> -->
+<!--                 <![CDATA[${next_state.equals('CANCELLED')}]]></conditionExpression> -->
+<!--         </sequenceFlow> -->
+
+        <!-- Pre Delete Cooldown State-->
+<!--         <userTask id="PRE_DELETE_COOLDOWN" name="Pre Delete Cooldown"> -->
+<!--             <extensionElements> -->
+<!--                 <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/> -->
+<!--                 <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/> -->
+<!--             </extensionElements> -->
+<!--         </userTask> -->
+<!--         <boundaryEvent id="PreDeleteCooldownTimer" name="Pre Delete Cooldown Timer" attachedToRef="PRE_DELETE_COOLDOWN" cancelActivity="true"> -->
+<!--             <timerEventDefinition> -->
+<!--                 <timeDuration xsi:type="tFormalExpression"><![CDATA[PT${PreDeleteCooldownSeconds}S]]></timeDuration> -->
+<!--             </timerEventDefinition> -->
+<!--         </boundaryEvent> -->
+<!--         <sequenceFlow id="flowPreDeleteCooldownToSoftDeleted" sourceRef="PreProductionCooldownTimer" targetRef="SOFT_DELETED"/> -->
+<!--         <sequenceFlow id="flowPreDeleteCooldownToProduction" sourceRef="PRE_DELETE_COOLDOWN" targetRef="PRODUCTION"> -->
+<!--             <conditionExpression xsi:type="tFormalExpression"> -->
+<!--                 <![CDATA[${(next_state.equals('CANCELLED') && previous_state.equals('PRODUCTION'))}]]></conditionExpression> -->
+<!--         </sequenceFlow> -->
+        <!-- PreDeleteCooldown Error handling -->
+        <!--         <sequenceFlow id="flowPreDeleteCooldownToPreDeleteCooldown" sourceRef="PRE_DELETE_COOLDOWN" -->
+        <!-- targetRef="PRE_DELETE_COOLDOWN"> -->
+        <!--             <conditionExpression xsi:type="tFormalExpression"> -->
+        <!--                 <![CDATA[${!(next_state.equals('CANCELLED') && ext_state.equals('PRODUCTION') )}]]> -->
+        <!--             </conditionExpression> -->
+        <!--         </sequenceFlow> -->
+
+        <!-- SoftDeleted State -->
+<!--         <userTask id="SOFT_DELETED" name="SoftDeleted"> -->
+<!--             <extensionElements> -->
+<!--                 <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/> -->
+<!--                 <activiti:taskListener event="complete" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/> -->
+<!--             </extensionElements> -->
+<!--         </userTask> -->
+<!--         <sequenceFlow id="flowSoftDeletedToEnd" sourceRef="SOFT_DELETED" targetRef="EndEvent"/> -->
+
+        <!-- End Event -->
+        <endEvent id="EndEvent" name="End">
+            <extensionElements>
+                <activiti:taskListener event="create" class="com.lbg.foundation.workflow.service.delegates.TaskStatusChangeListener"/>
+            </extensionElements>
+        </endEvent>
+    </process>
+</definitions>
